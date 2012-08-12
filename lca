@@ -1,0 +1,117 @@
+#!/usr/local/bin/node
+// Line comments alignment
+
+process.stdin.resume();
+process.stdin.setEncoding("utf8");
+
+var lines = [];
+process.stdin.on("data", function(chunk) {
+	// 受け取ったテキストを行毎に分解する
+	var text = chunk;
+	while(true) {
+		var matched = text.match(/(.*)\n((.|[\n])*)/);
+		if(!matched) {
+			return;
+		}
+
+		lines.push(matched[1]);
+		text = matched[2];
+	}
+});
+
+process.stdin.on("end", function() {
+	const alignedLines = alignmentLines(lines, 4);
+	alignedLines.forEach(function(line) {
+		process.stdout.write(line + "\n");
+	});
+});
+
+/**
+ * テキストの行コメントの開始位置を揃える
+ *
+ * @param lines テキストの配列
+ *
+ * @return 行コメントの開始位置を整えられたテキストの配列
+ */
+function alignmentLines(lines, tabWidth) {
+	var result = [];
+
+	/**
+	 * タブ幅を含むテキストの長さを取得する
+	 *
+	 * @param text テキスト
+	 *
+	 * @return タブ幅を含むテキストの長さ
+	 */
+	function getTextLength(text) {
+		var length = 0;
+		for(var i = 0; i < text.length; i++) {
+			if(text.charAt(i) === '\t') {
+				length += tabWidth - (length % tabWidth);
+			} else {
+				length++;
+			}
+		}
+
+		return length;
+	}
+
+	// 標準入力から受け取ったテキストの１行コメントの開始位置を整える
+	var infos = [];
+
+	// テキストとコメントを分離する
+	lines.forEach(function(line) {
+		var mached = line.match(/(.*\S)(\s*)(\/\/.*)/);
+		if(!mached) {
+			// コメントが見つからなかったので、そのまま渡す
+			infos.push({ text:line });
+			return;
+		}
+
+		const text = mached[1];		// テキスト部
+		const space = mached[2];	// 空白部
+		const comment = mached[3];	// コメント部
+		infos.push({ text:text, space:space, comment:comment });
+	});
+
+
+	// 一番長いテキストの長さを取得する 
+	var maxTextLength = 0;
+	var maxTextLengthInfo = null;
+	infos.forEach(function(info) {
+		const textLength = getTextLength(info.text);
+
+		if(maxTextLength < textLength) {
+			maxTextLength = textLength;
+			maxTextLengthInfo = info;
+		}
+	});
+
+	// タブを追加
+	maxTextLength = maxTextLength + tabWidth - (maxTextLength % tabWidth);
+	infos.forEach(function(info) {
+		// コメントが無ければ、テキストをそのまま表示 
+		if(!info.comment) {
+			result.push(info.text);
+			return;
+		}
+
+		// 最大のテキストの長さに合わせて、末尾にタブを追加 
+		var text = info.text;
+		var length = 0;
+		while(true) {
+			length = getTextLength(text);
+			if(length < maxTextLength) {
+				// 最大の長さに達するまで、タブを末尾に加える 
+				text = text + "\t";
+			} else {
+				break;
+			}
+		}
+
+		// 長さを合わせたテキストとコメントを出力 
+		result.push(text + info.comment);
+	});
+
+	return result;
+}
